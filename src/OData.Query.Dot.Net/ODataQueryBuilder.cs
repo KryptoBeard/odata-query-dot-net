@@ -42,7 +42,7 @@ namespace OData.Query.Dot.Net
             return BuildUrl("", buildObject);
         }
 
-        private static string BuildFilter<T>(PlainObject filter = null, List<Alias> aliases = null, string propPrefix = "")
+        private static string BuildFilter<T>(object filter = null, List<Alias> aliases = null, string propPrefix = "")
         {
             List<string> result = new List<string>();
             if (filter != null)
@@ -55,7 +55,7 @@ namespace OData.Query.Dot.Net
             }
             return string.Join(" and ", result);
         }
-        private static string BuildFilter<T>(Filter<T> filters = null, List<Alias> aliases = null, string propPrefix = "")
+        private static string BuildFilter<T>(FilterOld<T> filters = null, List<Alias> aliases = null, string propPrefix = "")
         {
             List<string> result = new List<string>();
             if (filters != null)
@@ -134,35 +134,35 @@ namespace OData.Query.Dot.Net
                     {
                         filtersArray.Add(RenderPrimitiveValue(propName, value, aliases));
                     }
-                    //else if (value is List<object>)
-                    //{
-                    //    var op = filterKey;
-                    //    var builtFilters = ((List<object>)value)
-                    //        .Select(v => BuildFilter<T>(v, aliases, propPrefix))
-                    //        .Where(f => f != null)
-                    //        .Select(f => ODataConstants.LogicalOperators.Contains(op) ? $"({f})" : f);
-                    //    if (builtFilters.Any())
-                    //    {
-                    //        if (ODataConstants.LogicalOperators.Contains(op))
-                    //        {
-                    //            if (builtFilters.Any())
-                    //            {
-                    //                if (op == "not")
-                    //                {
-                    //                    filtersArray.Add(ParseNot(builtFilters.ToList()));
-                    //                }
-                    //                else
-                    //                {
-                    //                    filtersArray.Add($"({string.Join($" {op} ", builtFilters)})");
-                    //                }
-                    //            }
-                    //        }
-                    //        else
-                    //        {
-                    //            filtersArray.Add(string.Join($" {op} ", builtFilters));
-                    //        }
-                    //    }
-                    //}
+                    else if (value is List<object>)
+                    {
+                        var op = filterKey;
+                        var builtFilters = ((List<object>)value)
+                            .Select(v => BuildFilter<T>(v, aliases, propPrefix))
+                            .Where(f => f != null)
+                            .Select(f => ODataConstants.LogicalOperators.Contains(op) ? $"({f})" : f);
+                        if (builtFilters.Any())
+                        {
+                            if (ODataConstants.LogicalOperators.Contains(op))
+                            {
+                                if (builtFilters.Any())
+                                {
+                                    if (op == "not")
+                                    {
+                                        filtersArray.Add(ParseNot(builtFilters.ToList()));
+                                    }
+                                    else
+                                    {
+                                        filtersArray.Add($"({string.Join($" {op} ", builtFilters)})");
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                filtersArray.Add(string.Join($" {op} ", builtFilters));
+                            }
+                        }
+                    }
                     else if (ODataConstants.LogicalOperators.Contains(propName))
                     {
                         var op = propName;
@@ -296,10 +296,10 @@ namespace OData.Query.Dot.Net
                         switch (key)
                         {
                             case "filter":
-                                value = BuildFilter(((PlainObject)expands)[key] as Filter<T>);
+                                value = BuildFilter<T>(((PlainObject)expands)[key]);
                                 break;
                             case "orderBy":
-                                value = BuildOrderBy<T>(((PlainObject)expands)[key] as OrderBy<T>);
+                                value = BuildOrderBy<T>(((PlainObject)expands)[key]);
                                 break;
                             case "levels":
                             case "count":
@@ -344,7 +344,7 @@ namespace OData.Query.Dot.Net
             }
             else if (orderBy is PlainObject)
             {
-                return string.Join(",", ((PlainObject)orderBy).Select(kvp => BuildOrderBy<T>(kvp.Value as OrderBy<T>, $"{kvp.Key}/")).Select(v => $"{prefix}{v}"));
+                return string.Join(",", ((PlainObject)orderBy).Select(kvp => BuildOrderBy<T>(kvp.Value, $"{kvp.Key}/")).Select(v => $"{prefix}{v}"));
             }
             return $"{prefix}{orderBy}";
         }
@@ -458,7 +458,7 @@ namespace OData.Query.Dot.Net
         {
             if (value is List<object>)
             {
-                var collectionClause = BuildFilter((Filter<object>)value, null, propName);
+                var collectionClause = BuildFilter((FilterOld<object>)value, null, propName);
                 if (collectionClause != null)
                 {
                     return $"{propName}/{filterKey}({collectionClause})";
@@ -466,7 +466,7 @@ namespace OData.Query.Dot.Net
             }
             else if (value is PlainObject)
             {
-                var collectionClause = BuildFilter((Filter<object>)((PlainObject)value)["value"], null, propName);
+                var collectionClause = BuildFilter((FilterOld<object>)((PlainObject)value)["value"], null, propName);
                 if (collectionClause != null)
                 {
                     return $"{propName}/{filterKey}({collectionClause})";

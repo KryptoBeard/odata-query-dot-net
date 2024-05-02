@@ -26,6 +26,7 @@ namespace OData.Query.Dot.Net
                 ["$expand"] = builtExpand,
                 ["$orderby"] = builtOrderBy
             };
+
             if (top != null)
             {
                 buildObject.Add("$top", top);
@@ -42,7 +43,7 @@ namespace OData.Query.Dot.Net
             return BuildUrl("", buildObject);
         }
 
-        private static string BuildFilter<T>(object filter = null, List<Alias> aliases = null, string propPrefix = "")
+        private static string BuildFilter<T>(object? filter = null, List<Alias>? aliases = null, string propPrefix = "")
         {
             List<string> result = new List<string>();
             if (filter != null)
@@ -55,39 +56,39 @@ namespace OData.Query.Dot.Net
             }
             return string.Join(" and ", result);
         }
-        private static string BuildFilter<T>(FilterOld<T> filters = null, List<Alias> aliases = null, string propPrefix = "")
-        {
-            List<string> result = new List<string>();
-            if (filters != null)
-            {
-                foreach (var filter in filters)
-                {
-                    if (filter != null)
-                    {
-                        var builtFilter = BuildFilterCore<T>(filter, aliases, propPrefix);
-                        if (builtFilter != null)
-                        {
-                            result.Add(builtFilter);
-                        }
-                    }
-                }
-            }
-            return string.Join(" and ", result);
-        }
+        //private static string BuildFilter<T>(FilterOld<T>? filters = null, List<Alias>? aliases = null, string propPrefix = "")
+        //{
+        //    List<string> result = new List<string>();
+        //    if (filters != null)
+        //    {
+        //        foreach (var filter in filters)
+        //        {
+        //            if (filter != null)
+        //            {
+        //                var builtFilter = BuildFilterCore<T>(filter, aliases, propPrefix);
+        //                if (builtFilter != null)
+        //                {
+        //                    result.Add(builtFilter);
+        //                }
+        //            }
+        //        }
+        //    }
+        //    return string.Join(" and ", result);
+        //}
 
-        private static string BuildFilterCore<T>(object filter = null, List<Alias> aliases = null, string propPrefix = "")
+        private static string BuildFilterCore<T>(object? filter = null, List<Alias>? aliases = null, string propPrefix = "")
         {
             string filterExpr = "";
             if (filter is string)
             {
                 filterExpr = (string)filter;
             }
-            else if (filter is PlainObject)
+            else if (filter is PlainObject plainFilter)
             {
                 var filtersArray = new List<string>();
-                foreach (var filterKey in ((PlainObject)filter).Keys)
+                foreach (var filterKey in plainFilter.Keys)
                 {
-                    var value = ((PlainObject)filter)[filterKey];
+                    var value = plainFilter[filterKey];
                     if (value == null)
                     {
                         continue;
@@ -126,9 +127,9 @@ namespace OData.Query.Dot.Net
                         propName = filterKey;
                     }
 
-                    if (filterKey == ITEM_ROOT && value is List<object>)
+                    if (filterKey == ITEM_ROOT && value is List<object> listValue)
                     {
-                        filtersArray.AddRange(((List<object>)value).Select(arrayValue => RenderPrimitiveValue(propName, arrayValue)));
+                        filtersArray.AddRange((listValue).Select(arrayValue => RenderPrimitiveValue(propName, arrayValue)));
                     }
                     else if (new List<string> { "number", "string", "boolean" }.Contains(value.GetType().Name.ToLower()) || value is DateTime || value == null)
                     {
@@ -179,40 +180,40 @@ namespace OData.Query.Dot.Net
                             }
                         }
                     }
-                    else if (value is PlainObject)
+                    else if (value is PlainObject plainValue)
                     {
-                        if (((PlainObject)value).ContainsKey("type"))
+                        if (plainValue.ContainsKey("type"))
                         {
                             filtersArray.Add(RenderPrimitiveValue(propName, value, aliases));
                         }
                         else
                         {
-                            var operators = ((PlainObject)value).Keys.ToList();
+                            var operators = plainValue.Keys.ToList();
                             foreach (var op in operators)
                             {
-                                if (((PlainObject)value)[op] == null)
+                                if (plainValue[op] == null)
                                 {
                                     continue;
                                 }
 
                                 if (ODataConstants.ComparisonOperators.Contains(op))
                                 {
-                                    filtersArray.Add($"{propName} {op} {HandleValue(((PlainObject)value)[op], aliases)}");
+                                    filtersArray.Add($"{propName} {op} {HandleValue(plainValue[op], aliases)}");
                                 }
                                 else if (ODataConstants.LogicalOperators.Contains(op))
                                 {
-                                    if (((PlainObject)value)[op] is List<object>)
+                                    if (plainValue[op] is List<object> plainValueList)
                                     {
-                                        filtersArray.Add(string.Join($" {op} ", ((List<object>)((PlainObject)value)[op]).Select(v => $"({BuildFilterCore<T>(v, aliases, propName)})")));
+                                        filtersArray.Add(string.Join($" {op} ", plainValueList.Select(v => $"({BuildFilterCore<T>(v, aliases, propName)})")));
                                     }
                                     else
                                     {
-                                        filtersArray.Add($"({BuildFilterCore<T>(((PlainObject)value)[op], aliases, propName)})");
+                                        filtersArray.Add($"({BuildFilterCore<T>(plainValue[op], aliases, propName)})");
                                     }
                                 }
                                 else if (ODataConstants.CollectionOperators.Contains(op))
                                 {
-                                    var collectionClause = BuildCollectionClause(filterKey.ToLower(), ((PlainObject)value)[op], op, propName);
+                                    var collectionClause = BuildCollectionClause<T>(filterKey.ToLower(), plainValue[op], op, propName);
                                     if (collectionClause != null)
                                     {
                                         filtersArray.Add(collectionClause);
@@ -220,7 +221,7 @@ namespace OData.Query.Dot.Net
                                 }
                                 else if (op == "has")
                                 {
-                                    filtersArray.Add($"{propName} {op} {HandleValue(((PlainObject)value)[op], aliases)}");
+                                    filtersArray.Add($"{propName} {op} {HandleValue(plainValue[op], aliases)}");
                                 }
                                 //else if (op == "in")
                                 //{
@@ -229,11 +230,11 @@ namespace OData.Query.Dot.Net
                                 //}
                                 else if (ODataConstants.BooleanFunctions.Contains(op))
                                 {
-                                    filtersArray.Add($"{op}({propName},{HandleValue(((PlainObject)value)[op], aliases)})");
+                                    filtersArray.Add($"{op}({propName},{HandleValue(plainValue[op], aliases)})");
                                 }
                                 else
                                 {
-                                    var filter2 = BuildFilterCore<T>((PlainObject)value, aliases, propName);
+                                    var filter2 = BuildFilterCore<T>(plainValue, aliases, propName);
                                     if (filter2 != null)
                                     {
                                         filtersArray.Add(filter2);
@@ -252,7 +253,7 @@ namespace OData.Query.Dot.Net
             }
             return filterExpr;
         }
-        private static string BuildExpand<T>(object expands)
+        private static string BuildExpand<T>(object? expands)
         {
             if (expands is int)
             {
@@ -285,9 +286,9 @@ namespace OData.Query.Dot.Net
             {
                 return string.Join(",", ((List<NestedExpandOptions<object>>)expands).Select(e => BuildExpand<T>(e)));
             }
-            else if (expands is PlainObject)
+            else if (expands is PlainObject expandObject)
             {
-                var expandKeys = ((PlainObject)expands).Keys.ToList();
+                var expandKeys = expandObject.Keys.ToList();
                 if (expandKeys.Any(key => ODataConstants.SupportedExpandProperties.Contains(key.ToLower())))
                 {
                     return string.Join(";", expandKeys.Select(key =>
@@ -296,19 +297,19 @@ namespace OData.Query.Dot.Net
                         switch (key)
                         {
                             case "filter":
-                                value = BuildFilter<T>(((PlainObject)expands)[key]);
+                                value = BuildFilter<T>(expandObject[key]);
                                 break;
                             case "orderBy":
-                                value = BuildOrderBy<T>(((PlainObject)expands)[key]);
+                                value = BuildOrderBy<T>(expandObject[key]);
                                 break;
                             case "levels":
                             case "count":
                             case "skip":
                             case "top":
-                                value = ((PlainObject)expands)[key].ToString();
+                                value = expandObject[key].ToString();
                                 break;
                             default:
-                                value = BuildExpand<T>(((PlainObject)expands)[key]);
+                                value = BuildExpand<T>(expandObject[key]);
                                 break;
                         }
                         return $"${key.ToLower()}={value}";
@@ -318,7 +319,7 @@ namespace OData.Query.Dot.Net
                 {
                     return string.Join(",", expandKeys.Select(key =>
                     {
-                        var builtExpand = BuildExpand<T>(((PlainObject)expands)[key]);
+                        var builtExpand = BuildExpand<T>(expandObject[key]);
                         return !string.IsNullOrEmpty(builtExpand) ? $"{key}({builtExpand})" : key;
                     }));
                 }
@@ -326,11 +327,11 @@ namespace OData.Query.Dot.Net
             return "";
         }
 
-        private static string BuildOrderBy<T>(object orderBy, string prefix = "")
+        private static string BuildOrderBy<T>(object? orderBy, string prefix = "")
         {
-            if (orderBy is List<OrderByOptions<T>>)
+            if (orderBy is List<OrderByOptions<T>> orderByValue)
             {
-                return string.Join(",", ((List<OrderByOptions<T>>)orderBy).Select(value =>
+                return string.Join(",", orderByValue.Select(value =>
                 {
                     if (value is List<string> && ((List<string>)value).Count == 2 && new List<string> { "asc", "desc" }.Contains(((List<string>)value)[1]))
                     {
@@ -342,9 +343,9 @@ namespace OData.Query.Dot.Net
                     }
                 }));
             }
-            else if (orderBy is PlainObject)
+            else if (orderBy is PlainObject orderByPlainValue)
             {
-                return string.Join(",", ((PlainObject)orderBy).Select(kvp => BuildOrderBy<T>(kvp.Value, $"{kvp.Key}/")).Select(v => $"{prefix}{v}"));
+                return string.Join(",", orderByPlainValue.Select(kvp => BuildOrderBy<T>(kvp.Value, $"{kvp.Key}/")).Select(v => $"{prefix}{v}"));
             }
             return $"{prefix}{orderBy}";
         }
@@ -360,28 +361,33 @@ namespace OData.Query.Dot.Net
             return $"not ({string.Join(" and ", builtFilters)})";
         }
 
-        private static string RenderPrimitiveValue(string propName, object value, List<Alias> aliases = null)
+        private static string RenderPrimitiveValue(string propName, object value, List<Alias>? aliases = null)
         {
             if (value is string)
             {
                 return $"{propName} eq '{value}'";
             }
-            else if (value is DateTime)
+            else if (value is DateTime dateValue)
             {
-                return $"{propName} eq {((DateTime)value).ToString("yyyy-MM-ddTHH:mm:ssZ")}";
+                return $"{propName} eq {dateValue.ToString("yyyy-MM-ddTHH:mm:ssZ")}";
             }
+            else if (value is System.Guid guidValue)
+            {
+                return $"{propName} eq {guidValue}";
+            }
+            //else if (value is DateOnly dateOnlyValue)
+            //{
+            //    return $"{propName} eq {dateOnlyValue.ToString("yyyy-MM-dd")}";
+            //}
             else if (value is bool)
             {
                 return $"{propName} eq {value.ToString().ToLower()}";
             }
-            else if (value is Raw)
+            else if (value is Raw rawValue)
             {
-                return $"{propName} eq {((Raw)value).Value}";
+                return $"{propName} eq {rawValue.Value}";
             }
-            else if (value is Guid)
-            {
-                return $"{propName} eq {((Guid)value).Value}";
-            }
+
             else if (value is Duration)
             {
                 return $"{propName} eq {((Duration)value).Value}";
@@ -397,6 +403,10 @@ namespace OData.Query.Dot.Net
             else if (value is Alias)
             {
                 var alias = (Alias)value;
+                if (aliases == null)
+                {
+                    aliases = new List<Alias>();
+                }
                 aliases.Add(alias);
                 return $"{propName} eq @{alias.Value}";
             }
@@ -407,7 +417,7 @@ namespace OData.Query.Dot.Net
             return "";
         }
 
-        private static string HandleValue(object value, List<Alias> aliases = null)
+        private static string HandleValue(object value, List<Alias>? aliases = null)
         {
             if (value is string)
             {
@@ -417,21 +427,25 @@ namespace OData.Query.Dot.Net
             {
                 return $"'{((DateTime)value).ToString("yyyy-MM-ddTHH:mm:ssZ")}'";
             }
+            //else if (value is DateOnly dateOnlyValue)
+            //{
+            //    return $"{propName} eq {dateOnlyValue.ToString("yyyy-MM-dd")}";
+            //}
             else if (value is bool)
             {
                 return value.ToString().ToLower();
             }
-            else if (value is Raw)
+            else if (value is Raw rawValue)
             {
-                return ((Raw)value).Value.ToString();
+                return rawValue.Value.ToString();
             }
-            else if (value is Guid)
+            else if (value is System.Guid guidValue)
             {
-                return ((Guid)value).Value.ToString();
+                return guidValue.ToString();
             }
-            else if (value is Duration)
+            else if (value is Duration durationValue)
             {
-                return ((Duration)value).Value.ToString();
+                return durationValue.Value.ToString();
             }
             else if (value is Binary)
             {
@@ -444,6 +458,10 @@ namespace OData.Query.Dot.Net
             else if (value is Alias)
             {
                 var alias = (Alias)value;
+                if (aliases == null)
+                {
+                    aliases = new List<Alias>();
+                }
                 aliases.Add(alias);
                 return $"@{alias.Value}";
             }
@@ -454,19 +472,19 @@ namespace OData.Query.Dot.Net
             return "";
         }
 
-        private static string BuildCollectionClause(string filterKey, object value, string op, string propName)
+        private static string? BuildCollectionClause<T>(string filterKey, object value, string op, string propName)
         {
-            if (value is List<object>)
+            if (value is List<object> valueList)
             {
-                var collectionClause = BuildFilter((FilterOld<object>)value, null, propName);
+                var collectionClause = BuildFilter<T>(valueList, null, propName);
                 if (collectionClause != null)
                 {
                     return $"{propName}/{filterKey}({collectionClause})";
                 }
             }
-            else if (value is PlainObject)
+            else if (value is PlainObject plainValue)
             {
-                var collectionClause = BuildFilter((FilterOld<object>)((PlainObject)value)["value"], null, propName);
+                var collectionClause = BuildFilter<T>(plainValue["value"], null, propName);
                 if (collectionClause != null)
                 {
                     return $"{propName}/{filterKey}({collectionClause})";
